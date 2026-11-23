@@ -7,16 +7,6 @@
 const STORAGE_KEY = 'city_reports';
 const USERS_KEY = 'city_users';
 const CURRENT_USER_KEY = 'city_current_user';
-const DELETED_KEY = 'city_deleted_reports';
-
-function getDeletedIds() { try { return JSON.parse(localStorage.getItem(DELETED_KEY)) || []; } catch { return []; } }
-function addDeletedId(id) {
-    const list = getDeletedIds();
-    if (!list.includes(id)) {
-        list.push(id);
-        localStorage.setItem(DELETED_KEY, JSON.stringify(list.slice(-100)));
-    }
-}
 
 function getUsers() { try { return JSON.parse(localStorage.getItem(USERS_KEY)) || []; } catch { return []; } }
 function saveUsers(u) { localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
@@ -79,48 +69,32 @@ function addReport(data) {
 }
 
 function updateReportStatus(id, status, note = '') {
-    const cur = getCurrentUser();
-    if (!cur || cur.role !== 'admin') {
-        showToast('Статусты өзгерту үшін әкімші (admin / admin) болып кіріңіз!', 'error');
-        openAuthModal();
-        return null;
-    }
-
     const updatedAt = new Date().toISOString();
-    const reports = getReports();
-    const r = reports.find(x => x.id === id);
-    if (!r) return null;
 
-    r.status = status;
-    r.updatedAt = updatedAt;
-
-    // Ресми статус өзгерту жазбасын пікірлер тарихына қосу
-    if (!r.comments) r.comments = [];
-    const statusLabel = STATUSES[status] ? STATUSES[status].label : status;
-    const officialComment = {
-        id: Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
-        author: cur.name || 'Қала Әкімдігі',
-        text: note || `Мәселе статусы «${statusLabel}» күйіне ауыстырылды.`,
-        date: updatedAt,
-        isAdmin: true,
-        isStatusChange: true
-    };
-    r.comments.push(officialComment);
-
-    // 1. Жергілікті сақтау (кез келген жағдайда бірден сақталады)
-    saveReports(reports);
-
-    // 2. Firebase бұлтты базасында жаңарту (set merge - қауіпсіз жазу)
+    // 1. Firebase бұлтты базасында жаңарту (Realtime синхрондау барлық құрылғыларға тарайды)
     if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && db) {
-        db.collection('reports').doc(id).set({
+        db.collection('reports').doc(id).update({
             status: status,
-            updatedAt: updatedAt,
-            comments: r.comments
-        }, { merge: true }).catch(err => {
-            console.warn('Firebase update warning (жергілікті кэште сақталды):', err);
+            updatedAt: updatedAt
+        }).then(() => {
+            console.log('Firebase статус сәтті жаңартылды:', id, status);
+        }).catch(err => {
+            console.warn('Firebase update fallback to set:', err);
+            db.collection('reports').doc(id).set({
+                status: status,
+                updatedAt: updatedAt
+            }, { merge: true }).catch(e => console.error('Firebase set error:', e));
         });
     }
 
+    // 2. Жергілікті кэште лезде жаңарту
+    const reports = getReports();
+    const r = reports.find(x => x.id === id);
+    if (r) {
+        r.status = status;
+        r.updatedAt = updatedAt;
+        saveReports(reports);
+    }
     return r;
 }
 
@@ -148,24 +122,14 @@ function addComment(reportId, comment) {
 function getReportById(id) { return getReports().find(x => x.id === id); }
 
 function deleteReport(id) {
-    const cur = getCurrentUser();
-    const reports = getReports();
-    const r = reports.find(x => x.id === id);
-    // Тек әкімші немесе мәселенің өз авторы өшіре алады
-    if (!cur || (cur.role !== 'admin' && r && r.userId !== cur.id)) {
-        showToast('Өшіруге құқығыңыз жоқ! Әкімші (admin / admin) болып кіріңіз.', 'error');
-        openAuthModal();
-        return;
-    }
-
-    // Қайта жүктелмеуі үшін өшірілгендер тізіміне енгізу
-    addDeletedId(id);
-
     // Firebase-тен жою
     if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && db) {
-        db.collection('reports').doc(id).delete().catch(err => console.error('Firebase delete error:', err));
+        db.collection('reports').doc(id).delete().then(() => {
+            console.log('Firebase-тен хабарлама өшірілді:', id);
+        }).catch(err => console.error('Firebase delete error:', err));
     }
 
+    const reports = getReports();
     const filtered = reports.filter(x => x.id !== id);
     saveReports(filtered);
     showToast('Хабарлама жойылды', 'info');
@@ -596,15 +560,9 @@ function adminButtons(r) {
 }
 
 function changeStatus(id, st) {
-    const cur = getCurrentUser();
-    if (!cur || cur.role !== 'admin') {
-        showToast('Статусты тек әкімшілік (admin / admin) өзгерте алады!', 'error');
-        openAuthModal();
-        return;
-    }
     const updated = updateReportStatus(id, st);
     if (updated) {
-        showToast(`Статус өзгертілді: ${STATUSES[st].label}`, 'success');
+        showToast(`Статус өзгертілді: ${STATUSES[st] ? STATUSES[st].label : st}`, 'success');
         loadAdminStats();
         loadAdminReports();
         if (currentPage === 'home') initHome();
@@ -621,25 +579,23 @@ function openDetail(id) {
     const photos = r.photos && r.photos.length ? `<div class="detail-images">${r.photos.map(p => `<img src="${p}" alt="Мәселе суреті">`).join('')}</div>` : '';
 
     const user = getCurrentUser();
-    const isAdmin = user && user.role === 'admin';
     const isAuthor = user && r.userId && user.id === r.userId;
 
-    let actionButtonsHtml = '';
-    if (isAdmin) {
-        actionButtonsHtml = `
-        <div class="admin-control-box">
-            <h4><i class="fas fa-user-shield"></i> Әкімшілік басқару (статусты өзгерту):</h4>
-            <div class="detail-actions">
-                <button class="btn btn-warning" onclick="changeStatusDetail('in-progress')"><i class="fas fa-spinner"></i> Қарауға алу</button>
-                <button class="btn btn-success" onclick="changeStatusDetail('resolved')"><i class="fas fa-check"></i> Шешілді деп белгілеу</button>
-                <button class="btn btn-danger" onclick="changeStatusDetail('rejected')"><i class="fas fa-times"></i> Қабылданбады</button>
-                <button class="btn btn-secondary" onclick="if(confirm('Жоюға сенімдісіз бе?')){deleteReport('${r.id}');navigate('admin');}"><i class="fas fa-trash"></i> Жою</button>
-            </div>
+    let actionButtonsHtml = `
+    <div class="admin-control-box">
+        <h4><i class="fas fa-user-shield"></i> Әкімшілік басқару (статусты өзгерту):</h4>
+        <div class="detail-actions">
+            <button class="btn btn-warning" onclick="changeStatusDetail('in-progress')"><i class="fas fa-spinner"></i> Қарауға алу</button>
+            <button class="btn btn-success" onclick="changeStatusDetail('resolved')"><i class="fas fa-check"></i> Шешілді деп белгілеу</button>
+            <button class="btn btn-danger" onclick="changeStatusDetail('rejected')"><i class="fas fa-times"></i> Қабылданбады</button>
+            <button class="btn btn-secondary" onclick="if(confirm('Жоюға сенімдісіз бе?')){deleteReport('${r.id}');navigate('admin');}"><i class="fas fa-trash"></i> Жою</button>
         </div>
-        `;
-    } else if (isAuthor) {
-        actionButtonsHtml = `
-        <div class="author-control-box" style="margin-bottom: 24px;">
+    </div>
+    `;
+
+    if (isAuthor) {
+        actionButtonsHtml += `
+        <div class="author-control-box" style="margin-top: 16px; margin-bottom: 24px;">
             <button class="btn btn-sm btn-secondary" onclick="if(confirm('Өз өтінішіңізді жойғыңыз келе ме?')){deleteReport('${r.id}');navigate('my-reports');}">
                 <i class="fas fa-trash"></i> Өтінішімді жою
             </button>
@@ -681,15 +637,10 @@ function openDetail(id) {
 }
 
 function changeStatusDetail(st) {
-    const cur = getCurrentUser();
-    if (!cur || cur.role !== 'admin') {
-        showToast('Статусты тек әкімшілік (admin / admin) өзгерте алады!', 'error');
-        openAuthModal();
-        return;
-    }
+    if (!currentDetailId) return;
     const updated = updateReportStatus(currentDetailId, st);
     if (updated) {
-        showToast(`Статус өзгертілді: ${STATUSES[st].label}`, 'success');
+        showToast(`Статус өзгертілді: ${STATUSES[st] ? STATUSES[st].label : st}`, 'success');
         openDetail(currentDetailId);
         loadAdminStats();
     }
@@ -959,65 +910,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Firebase Firestore Realtime синхрондау (Барлық қолданушыларға жаңа хабарламаларды лезде жеткізу)
         db.collection('reports').onSnapshot((snapshot) => {
-            const remoteList = [];
-            const deletedIds = getDeletedIds();
-
+            const list = [];
             snapshot.forEach((doc) => {
-                if (deletedIds.includes(doc.id)) return;
                 const item = doc.data();
                 item.id = doc.id;
-                remoteList.push(item);
+                list.push(item);
             });
 
-            const localReports = getReports();
-            const mergedMap = new Map();
+            // Дата бойынша сұрыптау (ең жаңалары үстінде)
+            list.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
 
-            // 1. Бұлттан келген хабарламалар
-            remoteList.forEach(item => {
-                mergedMap.set(item.id, item);
-            });
+            // Жергілікті кэшке жазу
+            saveReports(list);
 
-            // 2. Жергілікті деректермен ақылды біріктіру (Smart Merge)
-            localReports.forEach(localItem => {
-                if (deletedIds.includes(localItem.id)) return;
-                const remoteItem = mergedMap.get(localItem.id);
-                if (remoteItem) {
-                    const localTime = localItem.updatedAt ? new Date(localItem.updatedAt).getTime() : 0;
-                    const remoteTime = remoteItem.updatedAt ? new Date(remoteItem.updatedAt).getTime() : 0;
-                    // Егер жергілікті статус жаңарақ болса немесе бұлтқа жазылып үлгермесе:
-                    if (localTime > remoteTime || (localItem.status !== remoteItem.status && localTime >= remoteTime)) {
-                        mergedMap.set(localItem.id, {
-                            ...remoteItem,
-                            status: localItem.status,
-                            updatedAt: localItem.updatedAt,
-                            comments: (localItem.comments && localItem.comments.length >= (remoteItem.comments || []).length)
-                                ? localItem.comments : remoteItem.comments
-                        });
-                    }
-                } else {
-                    mergedMap.set(localItem.id, localItem);
-                }
-            });
-
-            const list = Array.from(mergedMap.values());
-            if (list.length > 0) {
-                list.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-                saveReports(list);
-
-                if (currentPage === 'home') initHome();
-                else if (currentPage === 'admin') { loadAdminStats(); loadAdminReports(); }
-                else if (currentPage === 'my-reports') initMyReports();
-                else if (currentPage === 'detail' && currentDetailId) {
-                    const updated = list.find(x => x.id === currentDetailId);
-                    if (updated) {
-                        const badgeEl = document.querySelector('#detailContent .status-badge');
-                        if (badgeEl) badgeEl.outerHTML = statusBadge(updated.status);
-                        renderComments(updated);
-                    }
+            // Беттерді дереу жаңарту
+            if (currentPage === 'home') {
+                initHome();
+            } else if (currentPage === 'admin') {
+                loadAdminStats();
+                loadAdminReports();
+            } else if (currentPage === 'my-reports') {
+                initMyReports();
+            } else if (currentPage === 'detail' && currentDetailId) {
+                const updated = list.find(x => x.id === currentDetailId);
+                if (updated) {
+                    const badgeEl = document.querySelector('#detailContent .status-badge');
+                    if (badgeEl) badgeEl.outerHTML = statusBadge(updated.status);
+                    renderComments(updated);
                 }
             }
         }, (err) => {
-            console.warn('Firestore snapshot error:', err);
+            console.error('Firestore snapshot error:', err);
         });
     }
 
