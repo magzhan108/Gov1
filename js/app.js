@@ -856,26 +856,52 @@ async function handleLogin(e) {
         try {
             showToast('Кіру орындалуда...', 'info');
             const cred = await auth.signInWithEmailAndPassword(email, pass);
-            const userDoc = await db.collection('users').doc(cred.user.uid).get();
-            const userData = userDoc.data() || {};
+            
+            let role = 'citizen';
+            let name = email.split('@')[0];
+
+            // 1. Firestore-тағы рөлді тексеру
+            try {
+                const userDoc = await db.collection('users').doc(cred.user.uid).get();
+                if (userDoc.exists) {
+                    const data = userDoc.data();
+                    if (data.role) role = data.role;
+                    if (data.name) name = data.name;
+                }
+            } catch (docErr) {
+                console.warn('Firestore doc read error:', docErr);
+            }
+
+            // 2. Егер пошта admin@ деп басталса немесе admin болса — автоматты әкімші
+            if (email.toLowerCase().startsWith('admin@') || email.toLowerCase().includes('admin')) {
+                role = 'admin';
+                name = 'Қала Әкімдігі';
+            }
+
             const userObj = {
                 id: cred.user.uid,
                 email: cred.user.email,
-                name: userData.name || email.split('@')[0],
-                role: userData.role || 'citizen'
+                name: name,
+                role: role
             };
+
             setCurrentUser(userObj);
             closeAuthModal();
             showToast(`Қош келдіңіз, ${userObj.name}!`, 'success');
             document.getElementById('loginForm').reset();
+            
             if (userObj.role === 'admin') navigate('admin');
             else if (currentPage === 'admin') navigate('home');
             else navigate(currentPage);
         } catch (err) {
             console.error('Firebase login error:', err);
             let msg = 'Email немесе құпиясөз қате!';
-            if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-                msg = 'Email немесе құпиясөз қате!';
+            if (err.code === 'auth/operation-not-allowed') {
+                msg = 'Firebase-те Email/Password тіркелуі қосылмаған! (Firebase Console-дан қосыңыз)';
+            } else if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+                msg = 'Мұндай қолданушы табылмады! Алдымен «Тіркелу» батырмасын басыңыз.';
+            } else if (err.code === 'auth/wrong-password') {
+                msg = 'Құпиясөз қате енгізілді!';
             } else if (err.code === 'auth/invalid-email') {
                 msg = 'Email форматы дұрыс емес!';
             } else if (err.code === 'auth/too-many-requests') {
@@ -911,7 +937,9 @@ async function handleRegister(e) {
     const name = document.getElementById('regFullname').value.trim();
     const email = document.getElementById('regEmail').value.trim();
     const pass = document.getElementById('regPassword').value.trim();
-    const role = document.getElementById('regRole').value;
+    // САЙТТАН ТІРКЕЛГЕНДЕР ТЕК АЗАМАТ (CITIZEN) БОЛАДЫ!
+    // Әкімшілік рөлін сайттан ешкім өзі таңдай алмайды.
+    const role = 'citizen';
 
     if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && auth) {
         try {
@@ -923,23 +951,31 @@ async function handleRegister(e) {
                 name: name,
                 role: role
             };
-            await db.collection('users').doc(cred.user.uid).set({
-                name: name,
-                email: email,
-                role: role,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            
+            // Firestore-қа тек азамат ретінде сақтау
+            try {
+                await db.collection('users').doc(cred.user.uid).set({
+                    name: name,
+                    email: email,
+                    role: role,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (dbErr) {
+                console.warn('Firestore doc set error:', dbErr);
+            }
+
             setCurrentUser(userObj);
             closeAuthModal();
             showToast(`Тіркелу сәтті аяқталды! Қош келдіңіз, ${name}!`, 'success');
             document.getElementById('registerForm').reset();
-            if (role === 'admin') navigate('admin');
-            else navigate('report');
+            navigate('report');
         } catch (err) {
             console.error('Firebase register error:', err);
             let msg = 'Тіркелу қатесі орын алды!';
-            if (err.code === 'auth/email-already-in-use') {
-                msg = 'Бұл email бойынша аккаунт тіркеліп қойған!';
+            if (err.code === 'auth/operation-not-allowed') {
+                msg = 'Firebase-те Email/Password қосылмаған! (Firebase Console-дан қосыңыз)';
+            } else if (err.code === 'auth/email-already-in-use') {
+                msg = 'Бұл email бойынша аккаунт тіркеліп қойған! «Кіру» бөлімін ашыңыз.';
             } else if (err.code === 'auth/weak-password') {
                 msg = 'Құпиясөз тым қарапайым (кемінде 6 таңба болуы керек)!';
             } else if (err.code === 'auth/invalid-email') {
@@ -969,9 +1005,7 @@ async function handleRegister(e) {
     closeAuthModal();
     showToast(`Тіркелу сәтті аяқталды! Қош келдіңіз, ${name}!`, 'success');
     document.getElementById('registerForm').reset();
-
-    if (role === 'admin') navigate('admin');
-    else navigate('report');
+    navigate('report');
 }
 
 function logout() {
