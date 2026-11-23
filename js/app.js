@@ -7,6 +7,16 @@
 const STORAGE_KEY = 'city_reports';
 const USERS_KEY = 'city_users';
 const CURRENT_USER_KEY = 'city_current_user';
+const DELETED_KEY = 'city_deleted_reports';
+
+function getDeletedIds() { try { return JSON.parse(localStorage.getItem(DELETED_KEY)) || []; } catch { return []; } }
+function addDeletedId(id) {
+    const list = getDeletedIds();
+    if (!list.includes(id)) {
+        list.push(id);
+        localStorage.setItem(DELETED_KEY, JSON.stringify(list.slice(-100)));
+    }
+}
 
 function getUsers() { try { return JSON.parse(localStorage.getItem(USERS_KEY)) || []; } catch { return []; } }
 function saveUsers(u) { localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
@@ -68,26 +78,49 @@ function addReport(data) {
     return data;
 }
 
-function updateReportStatus(id, status) {
+function updateReportStatus(id, status, note = '') {
     const cur = getCurrentUser();
     if (!cur || cur.role !== 'admin') {
-        showToast('Қате: Мәселе статусын тек әкімшілік өзгерте алады!', 'error');
+        showToast('Статусты өзгерту үшін әкімші (admin / admin) болып кіріңіз!', 'error');
+        openAuthModal();
         return null;
     }
 
     const updatedAt = new Date().toISOString();
+    const reports = getReports();
+    const r = reports.find(x => x.id === id);
+    if (!r) return null;
 
-    // Firebase бұлтты базасында жаңарту
+    r.status = status;
+    r.updatedAt = updatedAt;
+
+    // Ресми статус өзгерту жазбасын пікірлер тарихына қосу
+    if (!r.comments) r.comments = [];
+    const statusLabel = STATUSES[status] ? STATUSES[status].label : status;
+    const officialComment = {
+        id: Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
+        author: cur.name || 'Қала Әкімдігі',
+        text: note || `Мәселе статусы «${statusLabel}» күйіне ауыстырылды.`,
+        date: updatedAt,
+        isAdmin: true,
+        isStatusChange: true
+    };
+    r.comments.push(officialComment);
+
+    // 1. Жергілікті сақтау (кез келген жағдайда бірден сақталады)
+    saveReports(reports);
+
+    // 2. Firebase бұлтты базасында жаңарту (set merge - қауіпсіз жазу)
     if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && db) {
-        db.collection('reports').doc(id).update({ status, updatedAt }).catch(err => {
-            console.error('Firebase update error:', err);
+        db.collection('reports').doc(id).set({
+            status: status,
+            updatedAt: updatedAt,
+            comments: r.comments
+        }, { merge: true }).catch(err => {
+            console.warn('Firebase update warning (жергілікті кэште сақталды):', err);
         });
     }
 
-    // Жергілікті жаңарту
-    const reports = getReports();
-    const r = reports.find(x => x.id === id);
-    if (r) { r.status = status; r.updatedAt = updatedAt; saveReports(reports); }
     return r;
 }
 
@@ -103,9 +136,10 @@ function addComment(reportId, comment) {
 
         // Firebase-те жаңарту
         if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && db) {
-            db.collection('reports').doc(reportId).update({
-                comments: firebase.firestore.FieldValue.arrayUnion(comment)
-            }).catch(err => console.error('Firebase comment error:', err));
+            db.collection('reports').doc(reportId).set({
+                comments: firebase.firestore.FieldValue.arrayUnion(comment),
+                updatedAt: new Date().toISOString()
+            }, { merge: true }).catch(err => console.error('Firebase comment error:', err));
         }
     }
     return r;
@@ -119,9 +153,13 @@ function deleteReport(id) {
     const r = reports.find(x => x.id === id);
     // Тек әкімші немесе мәселенің өз авторы өшіре алады
     if (!cur || (cur.role !== 'admin' && r && r.userId !== cur.id)) {
-        showToast('Өшіруге құқығыңыз жоқ!', 'error');
+        showToast('Өшіруге құқығыңыз жоқ! Әкімші (admin / admin) болып кіріңіз.', 'error');
+        openAuthModal();
         return;
     }
+
+    // Қайта жүктелмеуі үшін өшірілгендер тізіміне енгізу
+    addDeletedId(id);
 
     // Firebase-тен жою
     if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && db) {
@@ -542,23 +580,35 @@ function loadAdminReports() {
 
 function adminButtons(r) {
     let b = [];
-    if (r.status === 'new') b.push(`<button class="btn btn-sm btn-warning" onclick="changeStatus('${r.id}','in-progress')"><i class="fas fa-spinner"></i> Қарау</button>`);
-    if (r.status === 'in-progress') b.push(`<button class="btn btn-sm btn-success" onclick="changeStatus('${r.id}','resolved')"><i class="fas fa-check"></i> Шешілді</button>`);
-    if (r.status !== 'rejected' && r.status !== 'resolved') b.push(`<button class="btn btn-sm btn-danger" onclick="changeStatus('${r.id}','rejected')"><i class="fas fa-times"></i></button>`);
-    if (r.status === 'resolved' || r.status === 'rejected') b.push(`<button class="btn btn-sm btn-secondary" onclick="changeStatus('${r.id}','new')"><i class="fas fa-undo"></i></button>`);
-    return b.join('');
+    if (r.status !== 'in-progress') {
+        b.push(`<button class="btn btn-sm btn-warning" title="Қарауға алу" onclick="changeStatus('${r.id}','in-progress')"><i class="fas fa-spinner"></i> Қарау</button>`);
+    }
+    if (r.status !== 'resolved') {
+        b.push(`<button class="btn btn-sm btn-success" title="Шешілді" onclick="changeStatus('${r.id}','resolved')"><i class="fas fa-check"></i> Шешілді</button>`);
+    }
+    if (r.status !== 'rejected') {
+        b.push(`<button class="btn btn-sm btn-danger" title="Қабылданбады" onclick="changeStatus('${r.id}','rejected')"><i class="fas fa-times"></i></button>`);
+    }
+    if (r.status !== 'new') {
+        b.push(`<button class="btn btn-sm btn-secondary" title="Жаңа күйге қайтару" onclick="changeStatus('${r.id}','new')"><i class="fas fa-undo"></i></button>`);
+    }
+    return b.join(' ');
 }
 
 function changeStatus(id, st) {
     const cur = getCurrentUser();
     if (!cur || cur.role !== 'admin') {
-        showToast('Статусты тек әкімшілік өкілі өзгерте алады!', 'error');
+        showToast('Статусты тек әкімшілік (admin / admin) өзгерте алады!', 'error');
+        openAuthModal();
         return;
     }
-    updateReportStatus(id, st);
-    showToast(`Статус: ${STATUSES[st].label}`, 'success');
-    loadAdminStats();
-    loadAdminReports();
+    const updated = updateReportStatus(id, st);
+    if (updated) {
+        showToast(`Статус өзгертілді: ${STATUSES[st].label}`, 'success');
+        loadAdminStats();
+        loadAdminReports();
+        if (currentPage === 'home') initHome();
+    }
 }
 
 // ==================== ДЕТАЛЬДЫ КӨРУ + КОММЕНТАРИЙЛЕР ====================
@@ -633,12 +683,16 @@ function openDetail(id) {
 function changeStatusDetail(st) {
     const cur = getCurrentUser();
     if (!cur || cur.role !== 'admin') {
-        showToast('Статусты тек әкімшілік өкілі өзгерте алады!', 'error');
+        showToast('Статусты тек әкімшілік (admin / admin) өзгерте алады!', 'error');
+        openAuthModal();
         return;
     }
-    updateReportStatus(currentDetailId, st);
-    showToast(`Статус: ${STATUSES[st].label}`, 'success');
-    openDetail(currentDetailId);
+    const updated = updateReportStatus(currentDetailId, st);
+    if (updated) {
+        showToast(`Статус өзгертілді: ${STATUSES[st].label}`, 'success');
+        openDetail(currentDetailId);
+        loadAdminStats();
+    }
 }
 
 // ==================== КОММЕНТАРИЙ ЖҮЙЕСІ ====================
@@ -847,9 +901,19 @@ function handleLogin(e) {
             role: 'admin'
         };
         setCurrentUser(adminUser);
+        if (typeof auth !== 'undefined' && auth && auth.currentUser) {
+            auth.signOut().catch(() => {});
+        }
         closeAuthModal();
         showToast('Қош келдіңіз, Қала Әкімдігі!', 'success');
-        navigate('admin');
+        if (currentPage === 'admin') {
+            loadAdminStats();
+            loadAdminReports();
+        } else if (currentPage === 'detail' && currentDetailId) {
+            openDetail(currentDetailId);
+        } else {
+            navigate('admin');
+        }
         return;
     }
 
@@ -873,6 +937,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Firebase Auth тыңдаушысы (Қауіпсіз сессияны автоматты сақтау)
     if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && auth) {
         auth.onAuthStateChanged(async (user) => {
+            const cur = getCurrentUser();
+            if (cur && cur.role === 'admin') {
+                return; // Әкімшілік рөлін азаматқа төмендетпеу
+            }
             if (user) {
                 try {
                     const userDoc = await db.collection('users').doc(user.uid).get();
@@ -891,21 +959,61 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Firebase Firestore Realtime синхрондау (Барлық қолданушыларға жаңа хабарламаларды лезде жеткізу)
         db.collection('reports').onSnapshot((snapshot) => {
-            const list = [];
+            const remoteList = [];
+            const deletedIds = getDeletedIds();
+
             snapshot.forEach((doc) => {
+                if (deletedIds.includes(doc.id)) return;
                 const item = doc.data();
                 item.id = doc.id;
-                list.push(item);
+                remoteList.push(item);
             });
+
+            const localReports = getReports();
+            const mergedMap = new Map();
+
+            // 1. Бұлттан келген хабарламалар
+            remoteList.forEach(item => {
+                mergedMap.set(item.id, item);
+            });
+
+            // 2. Жергілікті деректермен ақылды біріктіру (Smart Merge)
+            localReports.forEach(localItem => {
+                if (deletedIds.includes(localItem.id)) return;
+                const remoteItem = mergedMap.get(localItem.id);
+                if (remoteItem) {
+                    const localTime = localItem.updatedAt ? new Date(localItem.updatedAt).getTime() : 0;
+                    const remoteTime = remoteItem.updatedAt ? new Date(remoteItem.updatedAt).getTime() : 0;
+                    // Егер жергілікті статус жаңарақ болса немесе бұлтқа жазылып үлгермесе:
+                    if (localTime > remoteTime || (localItem.status !== remoteItem.status && localTime >= remoteTime)) {
+                        mergedMap.set(localItem.id, {
+                            ...remoteItem,
+                            status: localItem.status,
+                            updatedAt: localItem.updatedAt,
+                            comments: (localItem.comments && localItem.comments.length >= (remoteItem.comments || []).length)
+                                ? localItem.comments : remoteItem.comments
+                        });
+                    }
+                } else {
+                    mergedMap.set(localItem.id, localItem);
+                }
+            });
+
+            const list = Array.from(mergedMap.values());
             if (list.length > 0) {
-                list.sort((a, b) => new Date(b.date) - new Date(a.date));
+                list.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
                 saveReports(list);
+
                 if (currentPage === 'home') initHome();
                 else if (currentPage === 'admin') { loadAdminStats(); loadAdminReports(); }
                 else if (currentPage === 'my-reports') initMyReports();
                 else if (currentPage === 'detail' && currentDetailId) {
                     const updated = list.find(x => x.id === currentDetailId);
-                    if (updated) renderComments(updated);
+                    if (updated) {
+                        const badgeEl = document.querySelector('#detailContent .status-badge');
+                        if (badgeEl) badgeEl.outerHTML = statusBadge(updated.status);
+                        renderComments(updated);
+                    }
                 }
             }
         }, (err) => {
