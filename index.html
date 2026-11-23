@@ -339,50 +339,30 @@
         </section>
     </div>
 
-    <!-- Аутентификация модалы (Кіру / Тіркелу) -->
+    <!-- Әкімшілікке кіру модалы -->
     <div class="modal" id="authModal">
         <div class="modal-content auth-modal-content">
             <button class="modal-close" onclick="closeAuthModal()">&times;</button>
-            <div class="auth-tabs">
-                <button type="button" class="auth-tab-btn active" id="tabLoginBtn" onclick="switchAuthTab('login')">
-                    <i class="fas fa-sign-in-alt"></i> Кіру
-                </button>
-                <button type="button" class="auth-tab-btn" id="tabRegisterBtn" onclick="switchAuthTab('register')">
-                    <i class="fas fa-user-plus"></i> Тіркелу
-                </button>
+            <div style="text-align:center;margin-bottom:20px;">
+                <div style="background:#dbeafe;color:#1d4ed8;margin:0 auto 12px;width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <h3 style="font-size:1.3rem;font-weight:700;color:var(--text);">Әкімшілік жүйесіне кіру</h3>
+                <p style="font-size:0.88rem;color:var(--text-light);margin-top:4px;">Мәселелерді басқару үшін кіріңіз</p>
             </div>
 
             <!-- Кіру формасы -->
             <form id="loginForm" class="auth-form" onsubmit="handleLogin(event)">
                 <div class="form-group">
-                    <label for="loginEmail"><i class="fas fa-envelope"></i> Email (Электронды пошта)</label>
-                    <input type="email" id="loginEmail" placeholder="Мысалы: citizen@mail.kz" required>
+                    <label for="loginUsername"><i class="fas fa-user"></i> Логин</label>
+                    <input type="text" id="loginUsername" placeholder="Логинді жазыңыз" required autocomplete="off">
                 </div>
                 <div class="form-group">
                     <label for="loginPassword"><i class="fas fa-lock"></i> Құпиясөз</label>
-                    <input type="password" id="loginPassword" placeholder="Құпиясөзіңіз" required minlength="6">
+                    <input type="password" id="loginPassword" placeholder="Құпиясөзді жазыңыз" required autocomplete="off">
                 </div>
-                <button type="submit" class="btn btn-primary btn-block btn-lg">
+                <button type="submit" class="btn btn-primary btn-block btn-lg" style="margin-top:10px;">
                     <i class="fas fa-sign-in-alt"></i> Жүйеге кіру
-                </button>
-            </form>
-
-            <!-- Тіркелу формасы -->
-            <form id="registerForm" class="auth-form" style="display:none;" onsubmit="handleRegister(event)">
-                <div class="form-group">
-                    <label for="regFullname"><i class="fas fa-id-card"></i> Аты-жөніңіз</label>
-                    <input type="text" id="regFullname" placeholder="Мысалы: Бауыржан Серікұлы" required>
-                </div>
-                <div class="form-group">
-                    <label for="regEmail"><i class="fas fa-envelope"></i> Email (Электронды пошта)</label>
-                    <input type="email" id="regEmail" placeholder="Мысалы: citizen@mail.kz" required>
-                </div>
-                <div class="form-group">
-                    <label for="regPassword"><i class="fas fa-lock"></i> Құпиясөз</label>
-                    <input type="password" id="regPassword" placeholder="Кемінде 6 таңба" required minlength="6">
-                </div>
-                <button type="submit" class="btn btn-primary btn-block btn-lg">
-                    <i class="fas fa-user-plus"></i> Тіркелу
                 </button>
             </form>
         </div>

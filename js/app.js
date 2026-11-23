@@ -17,7 +17,7 @@ try {
     if (oldUsers.some(x => x.username === 'admin' && x.password === 'admin123')) {
         saveUsers(oldUsers.filter(x => !(x.username === 'admin' && x.password === 'admin123')));
     }
-} catch(e) {}
+} catch (e) { }
 function getCurrentUser() { try { return JSON.parse(localStorage.getItem(CURRENT_USER_KEY)); } catch { return null; } }
 function setCurrentUser(u) {
     if (u) localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(u));
@@ -37,14 +37,14 @@ const CATEGORIES = {
 };
 
 const STATUSES = {
-    'new':         { label: 'Жаңа',          css: 'status-new',         icon: 'fas fa-bell' },
-    'in-progress': { label: 'Қаралуда',      css: 'status-in-progress', icon: 'fas fa-spinner' },
-    'resolved':    { label: 'Шешілді',       css: 'status-resolved',    icon: 'fas fa-check-circle' },
-    'rejected':    { label: 'Қабылданбады',  css: 'status-rejected',    icon: 'fas fa-times-circle' }
+    'new': { label: 'Жаңа', css: 'status-new', icon: 'fas fa-bell' },
+    'in-progress': { label: 'Қаралуда', css: 'status-in-progress', icon: 'fas fa-spinner' },
+    'resolved': { label: 'Шешілді', css: 'status-resolved', icon: 'fas fa-check-circle' },
+    'rejected': { label: 'Қабылданбады', css: 'status-rejected', icon: 'fas fa-times-circle' }
 };
 
-function getReports()      { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; } }
-function saveReports(r)    { localStorage.setItem(STORAGE_KEY, JSON.stringify(r)); }
+function getReports() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; } }
+function saveReports(r) { localStorage.setItem(STORAGE_KEY, JSON.stringify(r)); }
 
 function addReport(data) {
     const cur = getCurrentUser();
@@ -160,21 +160,21 @@ function esc(text) { const d = document.createElement('div'); d.textContent = te
 function formatDate(d) {
     const dt = new Date(d);
     const pad = n => n.toString().padStart(2, '0');
-    return `${pad(dt.getDate())}.${pad(dt.getMonth()+1)}.${dt.getFullYear()} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    return `${pad(dt.getDate())}.${pad(dt.getMonth() + 1)}.${dt.getFullYear()} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
 }
 
-function catLabel(key)   { return CATEGORIES[key] ? `${CATEGORIES[key].emoji} ${CATEGORIES[key].label}` : key; }
+function catLabel(key) { return CATEGORIES[key] ? `${CATEGORIES[key].emoji} ${CATEGORIES[key].label}` : key; }
 function statusBadge(st) { const s = STATUSES[st] || STATUSES['new']; return `<span class="status-badge ${s.css}"><i class="${s.icon}"></i> ${s.label}</span>`; }
 
-function showToast(msg, type='info') {
+function showToast(msg, type = 'info') {
     let c = document.querySelector('.toast-container');
     if (!c) { c = document.createElement('div'); c.className = 'toast-container'; document.body.appendChild(c); }
-    const icons = { success:'fas fa-check-circle', error:'fas fa-exclamation-circle', info:'fas fa-info-circle' };
+    const icons = { success: 'fas fa-check-circle', error: 'fas fa-exclamation-circle', info: 'fas fa-info-circle' };
     const t = document.createElement('div');
     t.className = `toast toast-${type}`;
-    t.innerHTML = `<i class="${icons[type]||icons.info}"></i> ${msg}`;
+    t.innerHTML = `<i class="${icons[type] || icons.info}"></i> ${msg}`;
     c.appendChild(t);
-    setTimeout(() => { t.style.opacity='0'; t.style.transform='translateX(100%)'; t.style.transition='0.3s'; setTimeout(()=>t.remove(),300); }, 3000);
+    setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(100%)'; t.style.transition = '0.3s'; setTimeout(() => t.remove(), 300); }, 3000);
 }
 
 function resizeImage(dataUrl, maxW, cb) {
@@ -246,11 +246,11 @@ function navigate(page, data) {
 
     // Бетті іске қосу
     window.scrollTo(0, 0);
-    if (page === 'home')       initHome();
-    if (page === 'report')     initReport();
+    if (page === 'home') initHome();
+    if (page === 'report') initReport();
     if (page === 'my-reports') initMyReports();
-    if (page === 'admin')      initAdmin();
-    if (page === 'detail')     openDetail(data);
+    if (page === 'admin') initAdmin();
+    if (page === 'detail') openDetail(data);
 }
 
 // ==================== МЕНІҢ ӨТІНІШТЕРІМ ====================
@@ -409,9 +409,9 @@ function initPhotoUpload() {
 
 function handlePhotos(files) {
     for (const f of files) {
-        if (!f.type.startsWith('image/')) { showToast('Тек сурет рұқсат','error'); continue; }
-        if (f.size > 5*1024*1024) { showToast('5МБ-тан аспауы керек','error'); continue; }
-        if (uploadedPhotos.length >= 5) { showToast('Ең көбі 5 сурет','error'); break; }
+        if (!f.type.startsWith('image/')) { showToast('Тек сурет рұқсат', 'error'); continue; }
+        if (f.size > 5 * 1024 * 1024) { showToast('5МБ-тан аспауы керек', 'error'); continue; }
+        if (uploadedPhotos.length >= 5) { showToast('Ең көбі 5 сурет', 'error'); break; }
         const reader = new FileReader();
         reader.onload = e => resizeImage(e.target.result, 800, r => { uploadedPhotos.push(r); renderPreviews(); });
         reader.readAsDataURL(f);
@@ -419,9 +419,9 @@ function handlePhotos(files) {
 }
 
 function renderPreviews() {
-    document.getElementById('photoPreview').innerHTML = uploadedPhotos.map((p,i) => `
+    document.getElementById('photoPreview').innerHTML = uploadedPhotos.map((p, i) => `
         <div class="preview-item">
-            <img src="${p}" alt="Сурет ${i+1}">
+            <img src="${p}" alt="Сурет ${i + 1}">
             <button type="button" class="remove-photo" onclick="uploadedPhotos.splice(${i},1);renderPreviews();"><i class="fas fa-times"></i></button>
         </div>`).join('');
 }
@@ -438,11 +438,11 @@ function initReportForm() {
         const author = document.getElementById('authorName').value.trim();
         const contact = document.getElementById('contact').value.trim();
 
-        if (!cat) return showToast('Мәселе түрін таңдаңыз','error');
-        if (!desc) return showToast('Сипаттама жазыңыз','error');
-        if (selectedLat === null) return showToast('Картадан орынды белгілеңіз','error');
+        if (!cat) return showToast('Мәселе түрін таңдаңыз', 'error');
+        if (!desc) return showToast('Сипаттама жазыңыз', 'error');
+        if (selectedLat === null) return showToast('Картадан орынды белгілеңіз', 'error');
 
-        addReport({ category:cat, description:desc, address:addr, author:author, contact:contact, lat:selectedLat, lng:selectedLng, photos:uploadedPhotos });
+        addReport({ category: cat, description: desc, address: addr, author: author, contact: contact, lat: selectedLat, lng: selectedLng, photos: uploadedPhotos });
         document.getElementById('successModal').classList.add('active');
     });
 
@@ -473,7 +473,7 @@ function initAdmin() {
 
             document.getElementById('filterStatus').addEventListener('change', loadAdminReports);
             document.getElementById('filterCategory').addEventListener('change', loadAdminReports);
-            document.getElementById('refreshBtn').addEventListener('click', () => { loadAdminStats(); loadAdminReports(); showToast('Жаңартылды','info'); });
+            document.getElementById('refreshBtn').addEventListener('click', () => { loadAdminStats(); loadAdminReports(); showToast('Жаңартылды', 'info'); });
         } else {
             adminMap.invalidateSize();
         }
@@ -502,24 +502,24 @@ function loadAdminReports() {
 
     // Карта маркерлері
     adminMarkers.forEach(m => adminMap.removeLayer(m)); adminMarkers = [];
-    const colors = { 'new':'#0891b2', 'in-progress':'#f59e0b', 'resolved':'#16a34a', 'rejected':'#dc2626' };
+    const colors = { 'new': '#0891b2', 'in-progress': '#f59e0b', 'resolved': '#16a34a', 'rejected': '#dc2626' };
     reports.forEach(r => {
         if (r.lat && r.lng) {
-            const icon = L.divIcon({ className:'custom-marker', html:`<div style="width:28px;height:28px;background:${colors[r.status]||'#0891b2'};border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;"></div>`, iconSize:[28,28], iconAnchor:[14,14] });
-            const m = L.marker([r.lat,r.lng],{icon}).addTo(adminMap).bindPopup(`<strong>${catLabel(r.category)}</strong><br>${r.description.substring(0,80)}...`);
+            const icon = L.divIcon({ className: 'custom-marker', html: `<div style="width:28px;height:28px;background:${colors[r.status] || '#0891b2'};border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;"></div>`, iconSize: [28, 28], iconAnchor: [14, 14] });
+            const m = L.marker([r.lat, r.lng], { icon }).addTo(adminMap).bindPopup(`<strong>${catLabel(r.category)}</strong><br>${r.description.substring(0, 80)}...`);
             m.on('click', () => navigate('detail', r.id));
             adminMarkers.push(m);
         }
     });
     if (adminMarkers.length) adminMap.fitBounds(L.featureGroup(adminMarkers).getBounds().pad(0.1));
 
-    if (!reports.length) { container.innerHTML=''; noEl.style.display='block'; return; }
-    noEl.style.display='none';
+    if (!reports.length) { container.innerHTML = ''; noEl.style.display = 'block'; return; }
+    noEl.style.display = 'none';
 
     container.innerHTML = reports.map(r => {
         const thumb = r.photos && r.photos.length ? `<img src="${r.photos[0]}" alt="" class="admin-report-thumb">`
             : `<div class="admin-report-thumb" style="display:flex;align-items:center;justify-content:center;background:var(--border);color:var(--text-light);"><i class="fas fa-image" style="font-size:1.5rem;"></i></div>`;
-        const commentCount = (r.comments||[]).length;
+        const commentCount = (r.comments || []).length;
         return `
         <div class="admin-report-item" onclick="navigate('detail','${r.id}')">
             ${thumb}
@@ -542,10 +542,10 @@ function loadAdminReports() {
 
 function adminButtons(r) {
     let b = [];
-    if (r.status==='new') b.push(`<button class="btn btn-sm btn-warning" onclick="changeStatus('${r.id}','in-progress')"><i class="fas fa-spinner"></i> Қарау</button>`);
-    if (r.status==='in-progress') b.push(`<button class="btn btn-sm btn-success" onclick="changeStatus('${r.id}','resolved')"><i class="fas fa-check"></i> Шешілді</button>`);
-    if (r.status!=='rejected'&&r.status!=='resolved') b.push(`<button class="btn btn-sm btn-danger" onclick="changeStatus('${r.id}','rejected')"><i class="fas fa-times"></i></button>`);
-    if (r.status==='resolved'||r.status==='rejected') b.push(`<button class="btn btn-sm btn-secondary" onclick="changeStatus('${r.id}','new')"><i class="fas fa-undo"></i></button>`);
+    if (r.status === 'new') b.push(`<button class="btn btn-sm btn-warning" onclick="changeStatus('${r.id}','in-progress')"><i class="fas fa-spinner"></i> Қарау</button>`);
+    if (r.status === 'in-progress') b.push(`<button class="btn btn-sm btn-success" onclick="changeStatus('${r.id}','resolved')"><i class="fas fa-check"></i> Шешілді</button>`);
+    if (r.status !== 'rejected' && r.status !== 'resolved') b.push(`<button class="btn btn-sm btn-danger" onclick="changeStatus('${r.id}','rejected')"><i class="fas fa-times"></i></button>`);
+    if (r.status === 'resolved' || r.status === 'rejected') b.push(`<button class="btn btn-sm btn-secondary" onclick="changeStatus('${r.id}','new')"><i class="fas fa-undo"></i></button>`);
     return b.join('');
 }
 
@@ -568,7 +568,7 @@ function openDetail(id) {
     if (!r) { navigate('home'); return; }
 
     const content = document.getElementById('detailContent');
-    const photos = r.photos && r.photos.length ? `<div class="detail-images">${r.photos.map(p=>`<img src="${p}" alt="Мәселе суреті">`).join('')}</div>` : '';
+    const photos = r.photos && r.photos.length ? `<div class="detail-images">${r.photos.map(p => `<img src="${p}" alt="Мәселе суреті">`).join('')}</div>` : '';
 
     const user = getCurrentUser();
     const isAdmin = user && user.role === 'admin';
@@ -607,10 +607,10 @@ function openDetail(id) {
         <div id="detailMapContainer" class="detail-map"></div>
         <div class="detail-info-grid">
             <div class="detail-info-item"><label>Күні</label><span>${formatDate(r.date)}</span></div>
-            <div class="detail-info-item"><label>Координаталар</label><span>${r.lat?r.lat.toFixed(6)+', '+r.lng.toFixed(6):'—'}</span></div>
-            ${r.address?`<div class="detail-info-item"><label>Мекенжай</label><span>${esc(r.address)}</span></div>`:''}
-            ${r.author?`<div class="detail-info-item"><label>Автор</label><span>${esc(r.author)}</span></div>`:''}
-            ${r.contact?`<div class="detail-info-item"><label>Байланыс</label><span>${esc(r.contact)}</span></div>`:''}
+            <div class="detail-info-item"><label>Координаталар</label><span>${r.lat ? r.lat.toFixed(6) + ', ' + r.lng.toFixed(6) : '—'}</span></div>
+            ${r.address ? `<div class="detail-info-item"><label>Мекенжай</label><span>${esc(r.address)}</span></div>` : ''}
+            ${r.author ? `<div class="detail-info-item"><label>Автор</label><span>${esc(r.author)}</span></div>` : ''}
+            ${r.contact ? `<div class="detail-info-item"><label>Байланыс</label><span>${esc(r.contact)}</span></div>` : ''}
         </div>
         ${actionButtonsHtml}
     `;
@@ -653,12 +653,12 @@ function renderComments(report) {
 
     timeline.innerHTML = comments.map(c => {
         const photos = c.photos && c.photos.length
-            ? `<div class="comment-photos">${c.photos.map(p=>`<img src="${p}" alt="Сурет" onclick="openImageFull(this.src)">`).join('')}</div>` : '';
-        
+            ? `<div class="comment-photos">${c.photos.map(p => `<img src="${p}" alt="Сурет" onclick="openImageFull(this.src)">`).join('')}</div>` : '';
+
         const isOfficial = c.isAdmin;
         const officialBadge = isOfficial ? `<span class="official-badge"><i class="fas fa-check-double"></i> Ресми жауап</span>` : '';
         const avatarIcon = isOfficial ? `fas fa-university` : `fas fa-user-circle`;
-        
+
         return `
         <div class="comment-item ${isOfficial ? 'official-comment' : ''}">
             <div class="comment-avatar">
@@ -712,7 +712,7 @@ function initCommentForm() {
     if (photoInput) {
         photoInput.addEventListener('change', e => {
             for (const f of e.target.files) {
-                if (!f.type.startsWith('image/') || f.size > 5*1024*1024 || commentPhotos.length >= 3) continue;
+                if (!f.type.startsWith('image/') || f.size > 5 * 1024 * 1024 || commentPhotos.length >= 3) continue;
                 const reader = new FileReader();
                 reader.onload = ev => resizeImage(ev.target.result, 600, r => {
                     commentPhotos.push(r);
@@ -751,7 +751,7 @@ function initCommentForm() {
 }
 
 function renderCommentPreviews() {
-    document.getElementById('commentPhotoPreview').innerHTML = commentPhotos.map((p,i) => `
+    document.getElementById('commentPhotoPreview').innerHTML = commentPhotos.map((p, i) => `
         <div class="preview-item preview-sm">
             <img src="${p}" alt="">
             <button type="button" class="remove-photo" onclick="commentPhotos.splice(${i},1);renderCommentPreviews();"><i class="fas fa-times"></i></button>
@@ -812,12 +812,11 @@ function updateAuthUI() {
     }
 }
 
-function openAuthModal(tab = 'login') {
+function openAuthModal() {
     const modal = document.getElementById('authModal');
     if (modal) {
         modal.classList.add('active');
-        switchAuthTab(tab);
-        modal.onclick = function(e) {
+        modal.onclick = function (e) {
             if (e.target === modal) closeAuthModal();
         };
     }
@@ -828,199 +827,39 @@ function closeAuthModal() {
     if (modal) modal.classList.remove('active');
 }
 
-function switchAuthTab(tab) {
-    const tabLogin = document.getElementById('tabLoginBtn');
-    const tabReg = document.getElementById('tabRegisterBtn');
-    const loginForm = document.getElementById('loginForm');
-    const regForm = document.getElementById('registerForm');
-
-    if (tab === 'login') {
-        tabLogin.classList.add('active');
-        tabReg.classList.remove('active');
-        loginForm.style.display = 'block';
-        regForm.style.display = 'none';
-    } else {
-        tabLogin.classList.remove('active');
-        tabReg.classList.add('active');
-        loginForm.style.display = 'none';
-        regForm.style.display = 'block';
-    }
-}
-
-async function handleLogin(e) {
+function handleLogin(e) {
     e.preventDefault();
-    const email = document.getElementById('loginEmail').value.trim();
-    const pass = document.getElementById('loginPassword').value.trim();
+    const loginEl = document.getElementById('loginUsername') || document.getElementById('loginEmail');
+    const passEl = document.getElementById('loginPassword');
+    const loginVal = (loginEl?.value || '').trim().toLowerCase();
+    const passVal = (passEl?.value || '').trim();
 
-    if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && auth) {
-        try {
-            showToast('Кіру орындалуда...', 'info');
-            const cred = await auth.signInWithEmailAndPassword(email, pass);
-            
-            let role = 'citizen';
-            let name = email.split('@')[0];
+    // Дайын әкімшілік аккаунты: admin / admin (немесе admin123)
+    const isLoginAdmin = (loginVal === 'admin' || loginVal === 'admin@qala.kz' || loginVal === 'admin@gov.kz');
+    const isPassAdmin = (passVal === 'admin' || passVal === 'admin123' || passVal === 'admin12345' || passVal === 'Admin123!');
 
-            // 1. Firestore-тағы рөлді тексеру
-            try {
-                const userDoc = await db.collection('users').doc(cred.user.uid).get();
-                if (userDoc.exists) {
-                    const data = userDoc.data();
-                    if (data.role) role = data.role;
-                    if (data.name) name = data.name;
-                }
-            } catch (docErr) {
-                console.warn('Firestore doc read error:', docErr);
-            }
-
-            // 2. Егер пошта admin@ деп басталса немесе admin болса — автоматты әкімші
-            if (email.toLowerCase().startsWith('admin@') || email.toLowerCase().includes('admin')) {
-                role = 'admin';
-                name = 'Қала Әкімдігі';
-            }
-
-            const userObj = {
-                id: cred.user.uid,
-                email: cred.user.email,
-                name: name,
-                role: role
-            };
-
-            setCurrentUser(userObj);
-            closeAuthModal();
-            showToast(`Қош келдіңіз, ${userObj.name}!`, 'success');
-            document.getElementById('loginForm').reset();
-            
-            if (userObj.role === 'admin') navigate('admin');
-            else if (currentPage === 'admin') navigate('home');
-            else navigate(currentPage);
-        } catch (err) {
-            console.error('Firebase login error:', err);
-            let msg = 'Email немесе құпиясөз қате!';
-            if (err.code === 'auth/operation-not-allowed') {
-                msg = 'Firebase-те Email/Password тіркелуі қосылмаған! (Firebase Console-дан қосыңыз)';
-            } else if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-                msg = 'Мұндай қолданушы табылмады! Алдымен «Тіркелу» батырмасын басыңыз.';
-            } else if (err.code === 'auth/wrong-password') {
-                msg = 'Құпиясөз қате енгізілді!';
-            } else if (err.code === 'auth/invalid-email') {
-                msg = 'Email форматы дұрыс емес!';
-            } else if (err.code === 'auth/too-many-requests') {
-                msg = 'Кіру әрекеттері тым көп. Біраздан соң қайталаңыз.';
-            }
-            showToast(msg, 'error');
-        }
-        return;
-    }
-
-    const users = getUsers();
-    const found = users.find(u => (u.email === email || u.username === email) && u.password === pass);
-
-    if (found) {
-        setCurrentUser(found);
+    if (isLoginAdmin && isPassAdmin) {
+        const adminUser = {
+            id: 'admin_master',
+            name: 'Қала Әкімдігі',
+            username: 'admin',
+            email: 'admin@qala.kz',
+            role: 'admin'
+        };
+        setCurrentUser(adminUser);
         closeAuthModal();
-        showToast(`Қош келдіңіз, ${found.name}!`, 'success');
-        document.getElementById('loginForm').reset();
-
-        if (found.role === 'admin') {
-            navigate('admin');
-        } else {
-            if (currentPage === 'admin') navigate('home');
-            else navigate(currentPage);
-        }
-    } else {
-        showToast('Email немесе құпиясөз қате!', 'error');
-    }
-}
-
-async function handleRegister(e) {
-    e.preventDefault();
-    const name = document.getElementById('regFullname').value.trim();
-    const email = document.getElementById('regEmail').value.trim();
-    const pass = document.getElementById('regPassword').value.trim();
-    // САЙТТАН ТІРКЕЛГЕНДЕР ТЕК АЗАМАТ (CITIZEN) БОЛАДЫ!
-    // Әкімшілік рөлін сайттан ешкім өзі таңдай алмайды.
-    const role = 'citizen';
-
-    if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && auth) {
-        try {
-            showToast('Тіркелу орындалуда...', 'info');
-            const cred = await auth.createUserWithEmailAndPassword(email, pass);
-            const userObj = {
-                id: cred.user.uid,
-                email: email,
-                name: name,
-                role: role
-            };
-            
-            // Firestore-қа тек азамат ретінде сақтау
-            try {
-                await db.collection('users').doc(cred.user.uid).set({
-                    name: name,
-                    email: email,
-                    role: role,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            } catch (dbErr) {
-                console.warn('Firestore doc set error:', dbErr);
-            }
-
-            setCurrentUser(userObj);
-            closeAuthModal();
-            showToast(`Тіркелу сәтті аяқталды! Қош келдіңіз, ${name}!`, 'success');
-            document.getElementById('registerForm').reset();
-            navigate('report');
-        } catch (err) {
-            console.error('Firebase register error:', err);
-            let msg = 'Тіркелу қатесі орын алды!';
-            if (err.code === 'auth/operation-not-allowed') {
-                msg = 'Firebase-те Email/Password қосылмаған! (Firebase Console-дан қосыңыз)';
-            } else if (err.code === 'auth/email-already-in-use') {
-                msg = 'Бұл email бойынша аккаунт тіркеліп қойған! «Кіру» бөлімін ашыңыз.';
-            } else if (err.code === 'auth/weak-password') {
-                msg = 'Құпиясөз тым қарапайым (кемінде 6 таңба болуы керек)!';
-            } else if (err.code === 'auth/invalid-email') {
-                msg = 'Email мекенжайы дұрыс емес!';
-            }
-            showToast(msg, 'error');
-        }
+        showToast('Қош келдіңіз, Қала Әкімдігі!', 'success');
+        navigate('admin');
         return;
     }
 
-    const users = getUsers();
-    if (users.find(u => u.email === email || u.username === email)) {
-        return showToast('Бұл email бойынша аккаунт бар!', 'error');
-    }
-
-    const newUser = {
-        id: 'user_' + Date.now().toString(36),
-        name: name,
-        email: email,
-        password: pass,
-        role: role
-    };
-
-    users.push(newUser);
-    saveUsers(users);
-    setCurrentUser(newUser);
-    closeAuthModal();
-    showToast(`Тіркелу сәтті аяқталды! Қош келдіңіз, ${name}!`, 'success');
-    document.getElementById('registerForm').reset();
-    navigate('report');
+    showToast('Логин немесе құпиясөз қате!', 'error');
 }
 
 function logout() {
-    if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && auth) {
-        auth.signOut().catch(e => console.error(e));
-    }
-    const cur = getCurrentUser();
-    const wasAdmin = cur && cur.role === 'admin';
     setCurrentUser(null);
     showToast('Жүйеден шықтыңыз', 'info');
-    if (wasAdmin || currentPage === 'admin' || currentPage === 'my-reports') {
-        navigate('home');
-    } else {
-        navigate(currentPage);
-    }
+    navigate('home');
 }
 document.addEventListener('DOMContentLoaded', () => {
     // Мобильді меню
