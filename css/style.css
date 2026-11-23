@@ -1324,6 +1324,16 @@ img {
     cursor: pointer;
 }
 
+/* Netlify белгішесі мен плавающее виджеттерін жасыру */
+[data-netlify-deploy-id],
+iframe[src*="netlify"],
+.netlify-badge,
+#netlify-identity-widget,
+div[class*="netlify"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 768px) {
     .nav-links {
