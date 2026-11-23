@@ -680,41 +680,68 @@ function renderComments(report) {
 }
 
 function initCommentForm() {
-    const form = document.getElementById('commentForm');
-    const photoInput = document.getElementById('commentPhoto');
+    const cur = getCurrentUser();
+    const formWrapper = document.getElementById('commentFormWrapper');
+    const authPrompt = document.getElementById('commentAuthPrompt');
 
-    // Ескі оқиғаларды тазалау
+    if (!cur) {
+        // Тіркелмеген қолданушылар үшін форма жасырылып, тіркелу блогы шығады
+        if (formWrapper) formWrapper.style.display = 'none';
+        if (authPrompt) authPrompt.style.display = 'block';
+        return;
+    }
+
+    // Жүйеге кірген қолданушылар үшін форма көрінеді
+    if (formWrapper) formWrapper.style.display = 'block';
+    if (authPrompt) authPrompt.style.display = 'none';
+
+    const authorInput = document.getElementById('commentAuthor');
+    if (authorInput) {
+        authorInput.value = cur.name || cur.email;
+        authorInput.readOnly = true;
+    }
+
+    const form = document.getElementById('commentForm');
+    if (!form) return;
     const newForm = form.cloneNode(true);
     form.parentNode.replaceChild(newForm, form);
     commentPhotos = [];
     document.getElementById('commentPhotoPreview').innerHTML = '';
 
-    // Сурет жүктеу
-    document.getElementById('commentPhoto').addEventListener('change', e => {
-        for (const f of e.target.files) {
-            if (!f.type.startsWith('image/') || f.size > 5*1024*1024 || commentPhotos.length >= 3) continue;
-            const reader = new FileReader();
-            reader.onload = ev => resizeImage(ev.target.result, 600, r => {
-                commentPhotos.push(r);
-                renderCommentPreviews();
-            });
-            reader.readAsDataURL(f);
-        }
-    });
+    const photoInput = document.getElementById('commentPhoto');
+    if (photoInput) {
+        photoInput.addEventListener('change', e => {
+            for (const f of e.target.files) {
+                if (!f.type.startsWith('image/') || f.size > 5*1024*1024 || commentPhotos.length >= 3) continue;
+                const reader = new FileReader();
+                reader.onload = ev => resizeImage(ev.target.result, 600, r => {
+                    commentPhotos.push(r);
+                    renderCommentPreviews();
+                });
+                reader.readAsDataURL(f);
+            }
+        });
+    }
 
     // Форманы жіберу
-    document.getElementById('commentForm').addEventListener('submit', e => {
+    newForm.addEventListener('submit', e => {
         e.preventDefault();
-        const author = document.getElementById('commentAuthor').value.trim();
-        const text = document.getElementById('commentText').value.trim();
-        if (!author || !text) return showToast('Есім мен мәтін жазыңыз','error');
+        const user = getCurrentUser();
+        if (!user) {
+            showToast('Пікір жазу үшін жүйеге кіріңіз!', 'error');
+            openAuthModal('login');
+            return;
+        }
 
-        const cur = getCurrentUser();
-        const isAdmin = cur && cur.role === 'admin';
+        const author = user.name || user.email;
+        const text = document.getElementById('commentText').value.trim();
+        if (!text) return showToast('Пікір мәтінін жазыңыз', 'error');
+
+        const isAdmin = user.role === 'admin';
         addComment(currentDetailId, { author, text, photos: commentPhotos, isAdmin });
-        showToast('Пікіріңіз қосылды!','success');
+        showToast('Пікіріңіз қосылды!', 'success');
         commentPhotos = [];
-        document.getElementById('commentForm').reset();
+        document.getElementById('commentText').value = '';
         document.getElementById('commentPhotoPreview').innerHTML = '';
 
         // Комментарийлерді қайта жүктеу
@@ -777,6 +804,11 @@ function updateAuthUI() {
         if (loggedOutDiv) loggedOutDiv.style.display = 'flex';
         if (loggedInDiv) loggedInDiv.style.display = 'none';
         if (myReportsNav) myReportsNav.style.display = 'none';
+    }
+
+    // Детальды қарау бетінде тұрса, пікір жазу формасын қайта тексеру
+    if (currentPage === 'detail') {
+        initCommentForm();
     }
 }
 

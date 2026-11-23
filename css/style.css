@@ -1254,6 +1254,48 @@ img {
     border: 2px solid var(--border);
 }
 
+/* Comment Auth Prompt (Тіркелмеген қолданушылар үшін) */
+.comment-auth-prompt {
+    margin-top: 16px;
+}
+
+.auth-prompt-card {
+    background: #f8fafc;
+    border: 2px dashed #93c5fd;
+    border-radius: var(--radius);
+    padding: 36px 20px;
+    text-align: center;
+}
+
+.auth-prompt-card i {
+    font-size: 2.5rem;
+    color: var(--primary);
+    margin-bottom: 12px;
+    display: inline-block;
+}
+
+.auth-prompt-card h4 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+}
+
+.auth-prompt-card p {
+    color: var(--text-light);
+    font-size: 0.95rem;
+    max-width: 480px;
+    margin: 0 auto 20px;
+    line-height: 1.6;
+}
+
+.auth-prompt-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
 .comment-form-wrapper h4 {
     margin-bottom: 16px;
     display: flex;

@@ -122,8 +122,8 @@
                         <label for="category"><i class="fas fa-tag"></i> Мәселе түрі</label>
                         <select id="category" required>
                             <option value="">— Таңдаңыз —</option>
-                            <option value="pothole">🕳️ Жол ойығы</option>
-                            <option value="trash">🗑️ Жиналмаған қоқыс</option>
+                            <option value="pothole">🕳️ Жол мәлелесі</option>
+                            <option value="trash">🗑️ Қоқыс мәселесі</option>
                             <option value="lighting">💡 Жарықтандыру мәселесі</option>
                             <option value="water">💧 Су құбыры мәселесі</option>
                             <option value="road-sign">🚧 Жол белгісі</option>
@@ -295,15 +295,15 @@
                     <h3><i class="fas fa-comments"></i> Жұмыс процесі / Пікірлер</h3>
                     <div class="comments-timeline" id="commentsTimeline"></div>
 
-                    <!-- Комментарий қалдыру формасы -->
-                    <div class="comment-form-wrapper">
+                    <!-- Комментарий қалдыру формасы (Тек жүйеге кірген қолданушылар үшін) -->
+                    <div class="comment-form-wrapper" id="commentFormWrapper">
                         <h4><i class="fas fa-reply"></i> Пікір немесе ақпарат қалдыру</h4>
                         <form class="comment-form" id="commentForm">
                             <div class="form-group">
-                                <input type="text" id="commentAuthor" placeholder="Есіміңіз" required>
+                                <input type="text" id="commentAuthor" placeholder="Есіміңіз" readonly required>
                             </div>
                             <div class="form-group">
-                                <textarea id="commentText" rows="3" placeholder="Жазыңыз... (мысалы: 'Жұмысшылар келді, жұмыс басталды')" required></textarea>
+                                <textarea id="commentText" rows="3" placeholder="Жұмыс барысы немесе пікіріңізді жазыңыз..." required></textarea>
                             </div>
                             <div class="form-group">
                                 <label class="upload-inline">
@@ -316,6 +316,23 @@
                                 <i class="fas fa-paper-plane"></i> Жіберу
                             </button>
                         </form>
+                    </div>
+
+                    <!-- Тіркелмегендер үшін хабарлама блогы -->
+                    <div class="comment-auth-prompt" id="commentAuthPrompt" style="display:none;">
+                        <div class="auth-prompt-card">
+                            <i class="fas fa-user-lock"></i>
+                            <h4>Пікір жазу үшін жүйеге кіріңіз немесе тіркеліңіз</h4>
+                            <p>Мәселе бойынша пікір қалдыру немесе жұмыс барысынан фото жүктеу тек тіркелген азаматтарға қолжетімді.</p>
+                            <div class="auth-prompt-actions">
+                                <button type="button" class="btn btn-primary" onclick="openAuthModal('login')">
+                                    <i class="fas fa-sign-in-alt"></i> Кіру
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="openAuthModal('register')">
+                                    <i class="fas fa-user-plus"></i> Тіркелу
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
