@@ -338,16 +338,12 @@
             <!-- Кіру формасы -->
             <form id="loginForm" class="auth-form" onsubmit="handleLogin(event)">
                 <div class="form-group">
-                    <label for="loginUsername"><i class="fas fa-user"></i> Логин / Телефон</label>
-                    <input type="text" id="loginUsername" placeholder="Логиніңізді немесе телефонды жазыңыз" required>
+                    <label for="loginEmail"><i class="fas fa-envelope"></i> Email (Электронды пошта)</label>
+                    <input type="email" id="loginEmail" placeholder="Мысалы: citizen@mail.kz" required>
                 </div>
                 <div class="form-group">
                     <label for="loginPassword"><i class="fas fa-lock"></i> Құпиясөз</label>
-                    <input type="password" id="loginPassword" placeholder="Құпиясөзіңіз" required>
-                </div>
-                <div class="demo-account-hint">
-                    <i class="fas fa-info-circle"></i> Әкімшілік аккаунты үшін тест логині:<br>
-                    <strong>Логин:</strong> <code>admin</code> | <strong>Құпиясөз:</strong> <code>admin123</code>
+                    <input type="password" id="loginPassword" placeholder="Құпиясөзіңіз" required minlength="6">
                 </div>
                 <button type="submit" class="btn btn-primary btn-block btn-lg">
                     <i class="fas fa-sign-in-alt"></i> Жүйеге кіру
@@ -361,12 +357,12 @@
                     <input type="text" id="regFullname" placeholder="Мысалы: Бауыржан Серікұлы" required>
                 </div>
                 <div class="form-group">
-                    <label for="regUsername"><i class="fas fa-user"></i> Логин немесе телефон</label>
-                    <input type="text" id="regUsername" placeholder="+7 7XX XXX XX XX немесе логин" required>
+                    <label for="regEmail"><i class="fas fa-envelope"></i> Email (Электронды пошта)</label>
+                    <input type="email" id="regEmail" placeholder="Мысалы: citizen@mail.kz" required>
                 </div>
                 <div class="form-group">
                     <label for="regPassword"><i class="fas fa-lock"></i> Құпиясөз</label>
-                    <input type="password" id="regPassword" placeholder="Кемінде 4 таңба" required minlength="4">
+                    <input type="password" id="regPassword" placeholder="Кемінде 6 таңба" required minlength="6">
                 </div>
                 <div class="form-group">
                     <label for="regRole"><i class="fas fa-shield-alt"></i> Рөліңіз</label>
@@ -403,6 +399,11 @@
     </footer>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

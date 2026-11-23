@@ -8,25 +8,16 @@ const STORAGE_KEY = 'city_reports';
 const USERS_KEY = 'city_users';
 const CURRENT_USER_KEY = 'city_current_user';
 
-// Бастапқы әкімшілік аккаунты (Егер базада жоқ болса)
-function initDefaultUsers() {
-    if (!localStorage.getItem(USERS_KEY)) {
-        const defaultUsers = [
-            {
-                id: 'admin_1',
-                username: 'admin',
-                password: 'admin123',
-                name: 'Қала Әкімдігі',
-                role: 'admin'
-            }
-        ];
-        localStorage.setItem(USERS_KEY, JSON.stringify(defaultUsers));
-    }
-}
-initDefaultUsers();
-
 function getUsers() { try { return JSON.parse(localStorage.getItem(USERS_KEY)) || []; } catch { return []; } }
 function saveUsers(u) { localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
+
+// Ескі тесттік аккаунттарды толық тазарту
+try {
+    let oldUsers = getUsers();
+    if (oldUsers.some(x => x.username === 'admin' && x.password === 'admin123')) {
+        saveUsers(oldUsers.filter(x => !(x.username === 'admin' && x.password === 'admin123')));
+    }
+} catch(e) {}
 function getCurrentUser() { try { return JSON.parse(localStorage.getItem(CURRENT_USER_KEY)); } catch { return null; } }
 function setCurrentUser(u) {
     if (u) localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(u));
@@ -56,13 +47,22 @@ function getReports()      { try { return JSON.parse(localStorage.getItem(STORAG
 function saveReports(r)    { localStorage.setItem(STORAGE_KEY, JSON.stringify(r)); }
 
 function addReport(data) {
-    const reports = getReports();
     const cur = getCurrentUser();
-    data.id = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    data.id = data.id || (Date.now().toString(36) + Math.random().toString(36).substr(2, 5));
     data.date = new Date().toISOString();
     data.status = 'new';
     data.userId = cur ? cur.id : null;
     data.comments = []; // комментарийлер массиві
+
+    // 1. Firebase бұлтты базасына сақтау
+    if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && db) {
+        db.collection('reports').doc(data.id).set(data).catch(err => {
+            console.error('Firebase save error:', err);
+        });
+    }
+
+    // 2. Жергілікті кэшке сақтау
+    const reports = getReports();
     reports.unshift(data);
     saveReports(reports);
     return data;
@@ -74,9 +74,20 @@ function updateReportStatus(id, status) {
         showToast('Қате: Мәселе статусын тек әкімшілік өзгерте алады!', 'error');
         return null;
     }
+
+    const updatedAt = new Date().toISOString();
+
+    // Firebase бұлтты базасында жаңарту
+    if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && db) {
+        db.collection('reports').doc(id).update({ status, updatedAt }).catch(err => {
+            console.error('Firebase update error:', err);
+        });
+    }
+
+    // Жергілікті жаңарту
     const reports = getReports();
     const r = reports.find(x => x.id === id);
-    if (r) { r.status = status; r.updatedAt = new Date().toISOString(); saveReports(reports); }
+    if (r) { r.status = status; r.updatedAt = updatedAt; saveReports(reports); }
     return r;
 }
 
@@ -89,6 +100,13 @@ function addComment(reportId, comment) {
         comment.date = new Date().toISOString();
         r.comments.push(comment);
         saveReports(reports);
+
+        // Firebase-те жаңарту
+        if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && db) {
+            db.collection('reports').doc(reportId).update({
+                comments: firebase.firestore.FieldValue.arrayUnion(comment)
+            }).catch(err => console.error('Firebase comment error:', err));
+        }
     }
     return r;
 }
@@ -104,6 +122,12 @@ function deleteReport(id) {
         showToast('Өшіруге құқығыңыз жоқ!', 'error');
         return;
     }
+
+    // Firebase-тен жою
+    if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && db) {
+        db.collection('reports').doc(id).delete().catch(err => console.error('Firebase delete error:', err));
+    }
+
     const filtered = reports.filter(x => x.id !== id);
     saveReports(filtered);
     showToast('Хабарлама жойылды', 'info');
@@ -791,13 +815,47 @@ function switchAuthTab(tab) {
     }
 }
 
-function handleLogin(e) {
+async function handleLogin(e) {
     e.preventDefault();
-    const username = document.getElementById('loginUsername').value.trim();
+    const email = document.getElementById('loginEmail').value.trim();
     const pass = document.getElementById('loginPassword').value.trim();
 
+    if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && auth) {
+        try {
+            showToast('Кіру орындалуда...', 'info');
+            const cred = await auth.signInWithEmailAndPassword(email, pass);
+            const userDoc = await db.collection('users').doc(cred.user.uid).get();
+            const userData = userDoc.data() || {};
+            const userObj = {
+                id: cred.user.uid,
+                email: cred.user.email,
+                name: userData.name || email.split('@')[0],
+                role: userData.role || 'citizen'
+            };
+            setCurrentUser(userObj);
+            closeAuthModal();
+            showToast(`Қош келдіңіз, ${userObj.name}!`, 'success');
+            document.getElementById('loginForm').reset();
+            if (userObj.role === 'admin') navigate('admin');
+            else if (currentPage === 'admin') navigate('home');
+            else navigate(currentPage);
+        } catch (err) {
+            console.error('Firebase login error:', err);
+            let msg = 'Email немесе құпиясөз қате!';
+            if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+                msg = 'Email немесе құпиясөз қате!';
+            } else if (err.code === 'auth/invalid-email') {
+                msg = 'Email форматы дұрыс емес!';
+            } else if (err.code === 'auth/too-many-requests') {
+                msg = 'Кіру әрекеттері тым көп. Біраздан соң қайталаңыз.';
+            }
+            showToast(msg, 'error');
+        }
+        return;
+    }
+
     const users = getUsers();
-    const found = users.find(u => (u.username === username || u.phone === username) && u.password === pass);
+    const found = users.find(u => (u.email === email || u.username === email) && u.password === pass);
 
     if (found) {
         setCurrentUser(found);
@@ -812,26 +870,63 @@ function handleLogin(e) {
             else navigate(currentPage);
         }
     } else {
-        showToast('Логин немесе құпиясөз қате!', 'error');
+        showToast('Email немесе құпиясөз қате!', 'error');
     }
 }
 
-function handleRegister(e) {
+async function handleRegister(e) {
     e.preventDefault();
     const name = document.getElementById('regFullname').value.trim();
-    const username = document.getElementById('regUsername').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
     const pass = document.getElementById('regPassword').value.trim();
     const role = document.getElementById('regRole').value;
 
+    if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && auth) {
+        try {
+            showToast('Тіркелу орындалуда...', 'info');
+            const cred = await auth.createUserWithEmailAndPassword(email, pass);
+            const userObj = {
+                id: cred.user.uid,
+                email: email,
+                name: name,
+                role: role
+            };
+            await db.collection('users').doc(cred.user.uid).set({
+                name: name,
+                email: email,
+                role: role,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            setCurrentUser(userObj);
+            closeAuthModal();
+            showToast(`Тіркелу сәтті аяқталды! Қош келдіңіз, ${name}!`, 'success');
+            document.getElementById('registerForm').reset();
+            if (role === 'admin') navigate('admin');
+            else navigate('report');
+        } catch (err) {
+            console.error('Firebase register error:', err);
+            let msg = 'Тіркелу қатесі орын алды!';
+            if (err.code === 'auth/email-already-in-use') {
+                msg = 'Бұл email бойынша аккаунт тіркеліп қойған!';
+            } else if (err.code === 'auth/weak-password') {
+                msg = 'Құпиясөз тым қарапайым (кемінде 6 таңба болуы керек)!';
+            } else if (err.code === 'auth/invalid-email') {
+                msg = 'Email мекенжайы дұрыс емес!';
+            }
+            showToast(msg, 'error');
+        }
+        return;
+    }
+
     const users = getUsers();
-    if (users.find(u => u.username === username)) {
-        return showToast('Бұл логин/телефон бос емес!', 'error');
+    if (users.find(u => u.email === email || u.username === email)) {
+        return showToast('Бұл email бойынша аккаунт бар!', 'error');
     }
 
     const newUser = {
         id: 'user_' + Date.now().toString(36),
         name: name,
-        username: username,
+        email: email,
         password: pass,
         role: role
     };
@@ -848,6 +943,9 @@ function handleRegister(e) {
 }
 
 function logout() {
+    if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && auth) {
+        auth.signOut().catch(e => console.error(e));
+    }
     const cur = getCurrentUser();
     const wasAdmin = cur && cur.role === 'admin';
     setCurrentUser(null);
@@ -866,6 +964,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Аутентификация күйін жаңарту
     updateAuthUI();
+
+    // Firebase Auth тыңдаушысы (Қауіпсіз сессияны автоматты сақтау)
+    if (typeof isFirebaseConfigured !== 'undefined' && isFirebaseConfigured && auth) {
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                try {
+                    const userDoc = await db.collection('users').doc(user.uid).get();
+                    const data = userDoc.data() || {};
+                    setCurrentUser({
+                        id: user.uid,
+                        email: user.email,
+                        name: data.name || user.email.split('@')[0],
+                        role: data.role || 'citizen'
+                    });
+                } catch (e) {
+                    console.error('User sync error:', e);
+                }
+            }
+        });
+
+        // Firebase Firestore Realtime синхрондау (Барлық қолданушыларға жаңа хабарламаларды лезде жеткізу)
+        db.collection('reports').onSnapshot((snapshot) => {
+            const list = [];
+            snapshot.forEach((doc) => {
+                const item = doc.data();
+                item.id = doc.id;
+                list.push(item);
+            });
+            if (list.length > 0) {
+                list.sort((a, b) => new Date(b.date) - new Date(a.date));
+                saveReports(list);
+                if (currentPage === 'home') initHome();
+                else if (currentPage === 'admin') { loadAdminStats(); loadAdminReports(); }
+                else if (currentPage === 'my-reports') initMyReports();
+                else if (currentPage === 'detail' && currentDetailId) {
+                    const updated = list.find(x => x.id === currentDetailId);
+                    if (updated) renderComments(updated);
+                }
+            }
+        }, (err) => {
+            console.warn('Firestore snapshot error:', err);
+        });
+    }
 
     // Басты бетті жүктеу
     initHome();
